@@ -24,8 +24,13 @@ public strictfp class RobotPlayer {
     static int turnCount;
     static MapLocation enemyEnglightenmentCenter;
     static MapLocation spawnLocation;
+    static MapLocation dest;
+    static Direction marchingDirection = Direction.WEST;
     static Direction myDirection;
     static int myFlag;
+    static String state;
+    static int nextZoneDeltaX;
+    static int nextZoneDeltaY;
 
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -89,30 +94,30 @@ public strictfp class RobotPlayer {
         }
 
         // create memory when born
-        if (spawn == null) {
-          spawn = new MapLocation(rc.getLocation().x, rc.getLocation().y);
+        if (spawnLocation == null) {
+          spawnLocation = new MapLocation(rc.getLocation().x, rc.getLocation().y);
           dest = new MapLocation(
-            spawn.x - 3,
-            spawn.y + (int)(Math.random() * 10) - 5
+            spawnLocation.x - 3,
+            spawnLocation.y + (int)(Math.random() * 10) - 5
           );
         }
 
         if (state == "forming") {
-          myDir = rc.getLocation().directionTo(dest);
+          myDirection = rc.getLocation().directionTo(dest);
           if (rc.getRoundNum() % 50 == 0) {
             state = "marching";
-          } else if (myDir == Direction.CENTER) {
+          } else if (myDirection == Direction.CENTER) {
             state = "waiting";
           } else {
-            tryMove(myDir);
+            tryMove(myDirection);
           }
         } else if (state == "waiting") {
           if (rc.getRoundNum() % 50 == 0) {
             state = "marching";
           }
         } else if (state == "marching") {
-          myDir = marchingDirection;
-          tryMove(myDir);
+          myDirection = marchingDirection;
+          tryMove(myDirection);
         }
 
 
@@ -121,8 +126,8 @@ public strictfp class RobotPlayer {
     static void runSlanderer() throws GameActionException {
 
       // create memory when born
-      if (spawn == null) {
-        spawn = new MapLocation(rc.getLocation().x, rc.getLocation().y);
+      if (spawnLocation == null) {
+        spawnLocation = new MapLocation(rc.getLocation().x, rc.getLocation().y);
       }
 
       if (dest == null) {
@@ -134,13 +139,13 @@ public strictfp class RobotPlayer {
             String stringFlag = String.valueOf(flag);
             int dx = Integer.parseInt(stringFlag.substring(0, 2));
             int dy = Integer.parseInt(stringFlag.substring(2, 4));
-            dest = new MapLocation(spawn.x + dx, spawn.y + dy);
+            dest = new MapLocation(spawnLocation.x + dx, spawnLocation.y + dy);
           }
         }
       }
       if (dest != null) {
-        myDir = rc.getLocation().directionTo(dest);
-        tryMove(myDir);
+        myDirection = rc.getLocation().directionTo(dest);
+        tryMove(myDirection);
       } else {
         tryMove(randomDirection());
       }
@@ -154,18 +159,28 @@ public strictfp class RobotPlayer {
         myDirection = randomDirection();
       }
 
+      // if I haven't seen anything yet, move and look
       if (myFlag == 0) {
         // move in one direction until I can't, then pick a new direction
-        if (rc.isReady() && !tryMove(myDir)) {
-          myDir = randomDirection();
+        if (rc.isReady() && !tryMove(myDirection)) {
+          myDirection = randomDirection();
         }
 
         // if I see an enemyEnglightenmentCenter, raise flag 100
         Team myTeam = rc.getTeam();
         Team enemy = myTeam.opponent();
         for (RobotInfo robot : rc.senseNearbyRobots()) {
-          if (robot.type == RobotType.ENLIGHTENMENT_CENTER) {
+          if (robot.type == RobotType.ENLIGHTENMENT_CENTER && robot.team == enemy) {
             rc.setFlag(100);
+            myFlag = 100;
+          }
+        }
+
+        // if I see a friendly flag 100, raise flag 200
+        for (RobotInfo robot : rc.senseNearbyRobots()) {
+          if (robot.team == myTeam && rc.getFlag(robot.ID) == 100) {
+            rc.setFlag(200);
+            myFlag = 200;
           }
         }
       }
@@ -182,14 +197,6 @@ public strictfp class RobotPlayer {
       rc.setFlag(flag);
     }
 
-    /**
-     * Increments the nextZone variables.
-     *
-     */
-    static void setNextZone() {
-      nextZoneDeltaX += zoneSpacing;
-      nextZoneDeltaY += zoneSpacing;
-    }
 
     /**
      * Returns a random Direction.
